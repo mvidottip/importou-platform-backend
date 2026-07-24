@@ -1,0 +1,15 @@
+---
+description: Package manager — sempre Yarn (nunca npm)
+alwaysApply: true
+---
+
+# package-manager
+
+- **Sempre Yarn** neste repo (`app/`). Nunca `npm install`, `npm run`, `npx`.
+- Install: `yarn` / `yarn install`
+- Scripts: `yarn <script>` (ex.: `yarn start:dev`, `yarn prisma:migrate`)
+- Binários locais: `yarn prisma …` ou `yarn dlx` se precisar — não `npx`
+- Lockfile canônico: `yarn.lock`. Não commitar `package-lock.json`.
+- Comandos de docs/handoff/tasks devem usar `yarn`.
+
+$END$

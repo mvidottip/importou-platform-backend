@@ -1,0 +1,20 @@
+---
+description: Arquitetura Nest CQRS Importou (padrão BlockBR sem tenant)
+---
+
+# architecture
+
+- Nest modules: `api / application / domain / infra`.
+- CQRS: controllers finos → CommandBus/QueryBus → handlers.
+- Entity rica com `create` / `restore` / eventos quando houver máquina de estado.
+- IDs: TypeID via `Id` VO (`@src/shared/value-objects/id.value-object`).
+- **Sem Tenant.** Boundary = `Organization` + `Membership`.
+- JWT: `{ sub: userId, membershipId }`.
+- KPIs: live-read (Query + DAO), não tabela Metric.
+- Integrações atrás de ports em `infra/gateways` (Pay, KYB, Radar).
+- Features novas: pasta `app/tasks/prd-<slug>/` com `prd.md` + `techspec.md` + `N_task.md`.
+- Antes de implementar task: ler `prd.md` e `techspec.md` da pasta.
+- Contexto global: `HANDOFF.md` na raiz do repo.
+- Package manager: **Yarn** (ver `package-manager.mdc`).
+
+$END$

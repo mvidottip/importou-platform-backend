@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: importou-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: importou
+      POSTGRES_PASSWORD: importou
+      POSTGRES_DB: importou
+    volumes:
+      - importou_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U importou -d importou"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  importou_pg_data:

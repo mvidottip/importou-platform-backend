@@ -1,0 +1,430 @@
+// Importou — draft Prisma schema (padrão BlockBR, sem multi-tenant)
+// Status como String (enums no domain Nest), IDs TypeID gerados na app.
+// Money em centavos/minor units (Int) + currency String.
+//
+// Compliance:
+// - Gate forte = Organization (não User).
+// - importer  → KYB BR (CNPJ) + RADAR (Serpro depois); sem fluxo UBO/sócio no v1.
+// - broker    → KYB light (CNPJ + licença RFB); sem RADAR.
+// - exporter  → onboarding estrangeiro (não KYB BR); tax id do país.
+// - User/Person → login PF (CPF opcional); sem machine de KYC estilo Block.
+//
+// KPIs / dashboard: NÃO há tabelas Metric/MetricSnapshot no v1.
+// Seguir o padrão atual da Block (origin/development): live-read via
+// Query + MetricDataAccessObject (count/aggregate nas tabelas de negócio).
+// Rastreio de ações = Audit (+ ingress/egress de integrações no código).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identidade & acesso
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @unique @map("user_id")
+  isActive      Boolean   @map("is_active")
+  /// invited | active | blocked | deactivated
+  status        String
+  password      String
+  isBlocked     Boolean   @map("is_blocked")
+  blockedReason String?   @map("blocked_reason")
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  activatedAt   DateTime? @map("activated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  person      Person?
+  memberships Membership[]
+  audits      Audit[]       @relation("AuditRequester")
+
+  @@map("user")
+}
+
+model Person {
+  id            String    @unique @map("person_id")
+  isActive      Boolean   @map("is_active")
+  status        String
+  name          String
+  /// CPF normalizado (login / representante); não substitui KYB da org
+  cpf           String?   @unique
+  birthdate     DateTime?
+  nationality   String?
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+  userId        String    @unique @map("user_id")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index(userId)
+  @@map("person")
+}
+
+/// PJ / partido de negócio — boundary de dados e de compliance
+model Organization {
+  id        String  @unique @map("organization_id")
+  isActive  Boolean @map("is_active")
+  /// importer | exporter | broker | platform
+  type      String
+  /// Onboarding da org (admin / docs):
+  /// docs_pending | in_review | awaiting_approval | approved | rejected | activated | deactivated
+  status    String
+  name      String
+  legalName String  @map("legal_name")
+
+  /// importer/broker: CNPJ BR (obrigatório ao submeter).
+  /// exporter: null — usar foreignTaxId.
+  taxId String? @map("tax_id")
+  /// Tax id no país de origem (exporter). Não é CNPJ BR.
+  foreignTaxId String? @map("foreign_tax_id")
+  /// Licença RFB do despachante (broker).
+  licenseNumber String? @map("license_number")
+
+  /// RADAR / Siscomex — só relevante para type = importer
+  /// none | pending | active | failed | unknown
+  radarStatus String? @map("radar_status")
+  /// express | limited | unlimited (quando radarStatus = active)
+  radarType   String? @map("radar_type")
+  radarCheckedAt DateTime? @map("radar_checked_at")
+
+  country String?
+  city    String?
+  notes   String?
+  metadata Json?
+
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  submittedAt   DateTime? @map("submitted_at")
+  approvedAt    DateTime? @map("approved_at")
+  rejectedAt    DateTime? @map("rejected_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  memberships          Membership[]
+  complianceReviews    OrganizationComplianceReview[]
+  operationsAsImporter ImportOperation[]              @relation("OperationImporter")
+  operationsAsExporter ImportOperation[]              @relation("OperationExporter")
+  operationsAsBroker   ImportOperation[]              @relation("OperationBroker")
+  brokerProposals      BrokerProposal[]
+  exporterQuotes       ExporterQuote[]
+  audits               Audit[]
+
+  @@unique([type, taxId])
+  @@index(type)
+  @@index(status)
+  @@index(radarStatus)
+  @@map("organization")
+}
+
+model Role {
+  id            String    @unique @map("role_id")
+  isActive      Boolean   @map("is_active")
+  status        String
+  /// admin | importer | exporter | broker
+  type          String    @unique
+  description   String
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  activatedAt   DateTime? @map("activated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  memberships Membership[]
+
+  @@map("role")
+}
+
+model Membership {
+  id             String    @unique @map("membership_id")
+  isActive       Boolean   @map("is_active")
+  status         String
+  createdAt      DateTime  @map("created_at")
+  updatedAt      DateTime  @map("updated_at")
+  deactivatedAt  DateTime? @map("deactivated_at")
+  userId         String    @map("user_id")
+  organizationId String    @map("organization_id")
+  roleId         String    @map("role_id")
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index(userId)
+  @@index(organizationId)
+  @@index(roleId)
+  @@map("membership")
+}
+
+/// Histórico de aprovação admin — interpreta-se pelo organization.type:
+/// importer = KYB + RADAR; broker = KYB light; exporter = onboarding simples.
+model OrganizationComplianceReview {
+  id             String   @unique @map("organization_compliance_review_id")
+  /// approved | rejected | in_review
+  decision       String
+  note           String?
+  createdAt      DateTime @map("created_at")
+  organizationId String   @map("organization_id")
+  reviewerUserId String   @map("reviewer_user_id")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index(organizationId)
+  @@index(reviewerUserId)
+  @@map("organization_compliance_review")
+}
+
+// ---------------------------------------------------------------------------
+// Anexos polimórficos (parentType + parentId) — padrão Block
+// parentType: person | organization | import_operation | exporter_quote | broker_proposal
+// ---------------------------------------------------------------------------
+
+model Contact {
+  id            String    @unique @map("contact_id")
+  isActive      Boolean   @map("is_active")
+  status        String
+  /// email | phone
+  type          String
+  parentType    String    @map("parent_type")
+  parentId      String    @map("parent_id")
+  value         String
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  @@index(parentId)
+  @@index([parentType, parentId])
+  @@map("contact")
+}
+
+model Address {
+  id            String    @unique @map("address_id")
+  isActive      Boolean   @map("is_active")
+  status        String
+  parentType    String    @map("parent_type")
+  parentId      String    @map("parent_id")
+  street        String
+  number        String
+  complement    String?
+  neighborhood  String?
+  city          String
+  state         String
+  zipCode       String    @map("zip_code")
+  country       String    @default("BR")
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  @@index(parentId)
+  @@index([parentType, parentId])
+  @@map("address")
+}
+
+model Document {
+  id            String    @unique @map("document_id")
+  isActive      Boolean   @map("is_active")
+  status        String
+  /// cnpj_card | license_rfb | passport | commercial_invoice | landed_cost_pdf | other
+  type          String
+  parentType    String    @map("parent_type")
+  parentId      String    @map("parent_id")
+  number        String?
+  fileKey       String?   @map("file_key")
+  fileName      String?   @map("file_name")
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  @@index(parentId)
+  @@index([parentType, parentId])
+  @@map("document")
+}
+
+model File {
+  id            String    @unique @map("file_id")
+  isActive      Boolean   @map("is_active")
+  status        String
+  parentType    String    @map("parent_type")
+  parentId      String    @map("parent_id")
+  key           String
+  name          String
+  mimeType      String    @map("mime_type")
+  sizeBytes     Int       @map("size_bytes")
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  @@index(parentId)
+  @@index([parentType, parentId])
+  @@map("file")
+}
+
+// ---------------------------------------------------------------------------
+// Domínio — operação de importação (pai) + filhos
+// ---------------------------------------------------------------------------
+
+model ImportOperation {
+  id               String    @unique @map("import_operation_id")
+  isActive         Boolean   @map("is_active")
+  /// interest_created | awaiting_quote | quote_received | simulation_ready |
+  /// quote_locked | payment_pending | shipping | customs | completed | cancelled
+  status           String
+  /// Código legível compartilhado nos 4 papéis (ex.: IMP-2026-014)
+  referenceCode    String    @unique @map("reference_code")
+  productName      String    @map("product_name")
+  productId        String?   @map("product_id")
+  quantity         Int
+  incoterm         String?
+  originCountry    String?   @map("origin_country")
+  originCity       String?   @map("origin_city")
+  port             String?
+  /// minor units (centavos USD)
+  estimatedValue   Int?      @map("estimated_value")
+  estimatedCurrency String   @default("USD") @map("estimated_currency")
+  requestedAt      DateTime  @map("requested_at")
+  quoteLockedAt    DateTime? @map("quote_locked_at")
+  completedAt      DateTime? @map("completed_at")
+  createdAt        DateTime  @map("created_at")
+  updatedAt        DateTime  @map("updated_at")
+  deactivatedAt    DateTime? @map("deactivated_at")
+
+  importerOrganizationId String  @map("importer_organization_id")
+  exporterOrganizationId String? @map("exporter_organization_id")
+  brokerOrganizationId   String? @map("broker_organization_id")
+
+  importerOrganization Organization @relation("OperationImporter", fields: [importerOrganizationId], references: [id])
+  exporterOrganization Organization? @relation("OperationExporter", fields: [exporterOrganizationId], references: [id])
+  brokerOrganization   Organization? @relation("OperationBroker", fields: [brokerOrganizationId], references: [id])
+
+  exporterQuotes  ExporterQuote[]
+  landedCosts     LandedCostEstimate[]
+  brokerProposals BrokerProposal[]
+
+  @@index(status)
+  @@index(importerOrganizationId)
+  @@index(exporterOrganizationId)
+  @@index(brokerOrganizationId)
+  @@map("import_operation")
+}
+
+model ExporterQuote {
+  id                 String    @unique @map("exporter_quote_id")
+  isActive           Boolean   @map("is_active")
+  /// draft | submitted | superseded
+  status             String
+  invoiceNumber      String    @map("invoice_number")
+  /// minor units
+  amount             Int
+  currency           String    @default("USD")
+  unitPrice          Int       @map("unit_price")
+  quantity           Int
+  incoterm           String
+  validUntil         DateTime  @map("valid_until")
+  notes              String?
+  submittedAt        DateTime? @map("submitted_at")
+  createdAt          DateTime  @map("created_at")
+  updatedAt          DateTime  @map("updated_at")
+  deactivatedAt      DateTime? @map("deactivated_at")
+  importOperationId  String    @map("import_operation_id")
+  exporterOrganizationId String @map("exporter_organization_id")
+
+  importOperation      ImportOperation @relation(fields: [importOperationId], references: [id])
+  exporterOrganization Organization    @relation(fields: [exporterOrganizationId], references: [id])
+
+  @@index(importOperationId)
+  @@index(exporterOrganizationId)
+  @@index(status)
+  @@map("exporter_quote")
+}
+
+model LandedCostEstimate {
+  id                String   @unique @map("landed_cost_estimate_id")
+  isActive          Boolean  @map("is_active")
+  status            String
+  productAmountUsd  Int      @map("product_amount_usd")
+  fxRate            Decimal  @map("fx_rate") @db.Decimal(12, 6)
+  productAmountBrl  Int      @map("product_amount_brl")
+  totalAmountBrl    Int      @map("total_amount_brl")
+  /// [{ label, amountBrl }]
+  lines             Json
+  estimatedAt       DateTime @map("estimated_at")
+  createdAt         DateTime @map("created_at")
+  updatedAt         DateTime @map("updated_at")
+  importOperationId String   @map("import_operation_id")
+
+  importOperation ImportOperation @relation(fields: [importOperationId], references: [id])
+
+  @@index(importOperationId)
+  @@map("landed_cost_estimate")
+}
+
+model BrokerProposal {
+  id                     String    @unique @map("broker_proposal_id")
+  isActive               Boolean   @map("is_active")
+  /// draft | sent | accepted | rejected | superseded
+  status                 String
+  clearanceFeeBrl        Int       @map("clearance_fee_brl")
+  handlingFeeBrl         Int       @map("handling_fee_brl")
+  validUntil             DateTime  @map("valid_until")
+  notes                  String?
+  submittedAt            DateTime? @map("submitted_at")
+  decidedAt              DateTime? @map("decided_at")
+  createdAt              DateTime  @map("created_at")
+  updatedAt              DateTime  @map("updated_at")
+  deactivatedAt          DateTime? @map("deactivated_at")
+  importOperationId      String    @map("import_operation_id")
+  brokerOrganizationId   String    @map("broker_organization_id")
+
+  importOperation    ImportOperation @relation(fields: [importOperationId], references: [id])
+  brokerOrganization Organization    @relation(fields: [brokerOrganizationId], references: [id])
+
+  @@index(importOperationId)
+  @@index(brokerOrganizationId)
+  @@index(status)
+  @@map("broker_proposal")
+}
+
+// ---------------------------------------------------------------------------
+// Observabilidade / plataforma
+// KPIs de dashboard: live-read (Query + DAO), sem tabelas Metric*.
+// ---------------------------------------------------------------------------
+
+model Audit {
+  id             String   @unique @map("audit_id")
+  entityId       String   @map("entity_id")
+  commandName    String   @map("command_name")
+  url            String
+  method         String
+  requesterId    String   @map("requester_id")
+  requesterIp    String   @map("requester_ip")
+  requesterAgent String   @map("requester_agent")
+  createdAt      DateTime @map("created_at") @db.Timestamptz(6)
+  /// escopo opcional (admin pode ser null / platform org)
+  organizationId String?  @map("organization_id")
+
+  requester    User          @relation("AuditRequester", fields: [requesterId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index(entityId)
+  @@index(commandName)
+  @@index(requesterId)
+  @@index(organizationId)
+  @@map("audit")
+}
+
+model Idempotency {
+  id        String   @unique @map("idempotency_id")
+  key       String
+  createdAt DateTime @map("created_at") @db.Timestamptz(6)
+  parentId  String   @map("parent_id")
+
+  @@unique([key, parentId])
+  @@index(key)
+  @@index(parentId)
+  @@map("idempotency")
+}

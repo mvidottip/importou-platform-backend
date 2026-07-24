@@ -1,0 +1,19 @@
+---
+description: Harness de PRD / techspec / tasks (estilo Block)
+---
+
+# task-harness
+
+Fluxo obrigatório para features não-triviais:
+
+1. `app/tasks/prd-<slug>/prd.md` — produto
+2. `techspec.md` — desenho técnico
+3. `tasks.md` + `N_task.md` — fatias
+
+Cada `N_task.md` começa com `<critical>` pedindo leitura do prd + techspec.
+
+Templates: `app/tasks/_templates/`.
+
+Não implementar epic grande só por chat sem pasta de tasks.
+
+$END$

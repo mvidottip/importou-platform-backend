@@ -1,0 +1,16 @@
+---
+description: Compliance e papéis Importou (KYB/RADAR/org)
+---
+
+# domain-compliance
+
+- Compliance mora na **Organization**, não no User.
+- User status leve: invited | active | blocked | deactivated.
+- **Importer**: PJ + CNPJ + RADAR (Serpro depois). Sem UBO/sócio no v1.
+- **Broker**: CNPJ + licença RFB; sem RADAR (KYB light / fila admin).
+- **Exporter**: tax id estrangeiro (`foreignTaxId`); não KYB BR.
+- Roles: admin | importer | exporter | broker — compatíveis com `organization.type`.
+- Operação: um `referenceCode` IMP-* compartilhado; filhos ExporterQuote / BrokerProposal / LandedCostEstimate.
+- Não copiar da Block: Tenant, Offer/Investment/Token, Suitability, Metric persistida.
+
+$END$
