@@ -1,0 +1,24 @@
+---
+description: Unit test patterns for Importou domain
+globs: "**/__tests__/@unit/**/*.ts"
+alwaysApply: false
+---
+
+# Unit tests (Importou)
+
+Test entities / VOs only.
+
+```typescript
+it("should throw when cancelling an already cancelled operation", () => {
+  const operation = ImportOperation.create(/* ... */);
+  operation.cancel();
+  const fn = () => operation.cancel();
+  expect(fn).toThrow(UnprocessableEntityException);
+  expect(fn).toThrow(`Cannot cancel import operation in ${ImportOperationStatus.Cancelled} status`);
+});
+```
+
+- Use `Id.create("importoperation")` (or the module prefix) for ids.
+- Never invent Tenant/Offer/Investment fixtures.
+
+$END$

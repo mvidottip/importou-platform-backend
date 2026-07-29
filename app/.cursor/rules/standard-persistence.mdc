@@ -1,0 +1,36 @@
+---
+description: Repositories vs DAOs for Importou
+globs: src/**/infra/**/*.ts,src/**/domain/**/*.ts
+alwaysApply: false
+---
+
+# Persistence (Importou)
+
+## Repository
+
+- Write path and aggregate load/save.
+- Interface in `domain/`, implementation in `infra/`.
+- Works with domain entities (`create` / `restore`), not raw Prisma types in handlers.
+
+## DAO (`*DataAccessObject`)
+
+- Read models for queries/lists/KPIs (live-read aggregates).
+- Returns plain read DTOs / Prisma-shaped projections — not rich entities.
+- Apply `organizationId` filters for org-scoped lists.
+
+## Mapper
+
+- `toDomain(raw)` / `toJSON(entity)` between Prisma and entity.
+- Keep mapping free of business rules.
+
+## Money / ids
+
+- Money in minor units (`Int`) + `currency` string.
+- Ids: TypeID via `Id` VO.
+
+## Do not
+
+- Persist Metric snapshot tables in v1 (use live-read queries).
+- Add `tenant_id` columns or Tenant filters.
+
+$END$

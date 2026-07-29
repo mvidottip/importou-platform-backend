@@ -1,0 +1,20 @@
+---
+description: Importou product boundaries — Organization not Tenant; always apply
+alwaysApply: true
+---
+
+# importou-domain
+
+- **Sem Tenant.** Boundary = `Organization` + `Membership` + `Role`.
+- JWT: `{ sub: userId, membershipId }`.
+- Roles: `admin` | `importer` | `exporter` | `broker` (compatíveis com `organization.type`).
+- Compliance na **Organization** (importer RADAR; broker KYB light; exporter `foreignTaxId`).
+- Operação: `ImportOperation.referenceCode` tipo `IMP-*`; filhos quote / landed cost / broker proposal.
+- Package manager: **Yarn** only.
+- Commits: English Conventional Commits (`feat:`, `fix:`, `chore:`, …).
+- Integrações atrás de ports em `infra/gateways` (Pay, KYB, Radar) — stubs até o loop estabilizar.
+- Features: `app/tasks/prd-<slug>/` with `prd.md` + `techspec.md` + `N_task.md`.
+- Prefer Importou modules and examples (`import-operation`, `organization`, `membership`). Do not copy patterns from unrelated products.
+- Estilo Nest/CQRS/API: referência técnica = BlockBR — ver `block-technical-reference.mdc` (auth authenticate/authorize + user/me).
+
+$END$

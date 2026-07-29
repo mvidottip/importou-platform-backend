@@ -1,0 +1,51 @@
+---
+description: CQRS + Organization access for Importou (no Tenant)
+globs: src/**/application/**/*.ts,src/**/api/**/*.ts
+alwaysApply: false
+---
+
+# CQRS and API (Importou)
+
+## Commands vs queries
+
+- **Command** — writes; repositories; may publish events; optional `@AuditDecorator` when available.
+- **Query** — reads; DAO only; no audit; no mutations.
+- **Never** call `commandBus`/`queryBus` from inside another handler. Reuse via entity/domain service.
+
+## Event fan-out
+
+- Publish generic facts (`BrokerProposalAcceptedEvent`), not per-consumer variants.
+- Sagas map event → next command; handler guards with domain predicates (`if (!proposal.isAccepted()) return`).
+
+## Output mapping
+
+- Commands: map entity → output DTO when returning body.
+- Queries: return DAO read model as-is.
+
+## Controllers
+
+- Thin: build Command/Query from input + `@MembershipCurrent()`, execute bus.
+- `@UseGuards(AuthAuthorizeGuard)` + `@Roles(...)`.
+- Never inject repository/DAO in controllers.
+
+## Organization access
+
+- Writes: load resource, ensure it belongs to `membership.organizationId` (or role `admin`), then mutate.
+- Reads/lists: filter by `organizationId` in the DAO (admin may be global).
+- **Never** `tenantId`, `ensureTenantAccess`, or multi-tenant helpers.
+
+```typescript
+// ✅ org-scoped cancel
+const operation = await this.repo.findByIdOrThrow(command.importOperationId);
+if (!operation.importerOrganizationId.equals(command.membership.organizationId)) {
+  throw new ForbiddenException();
+}
+operation.cancel();
+await this.repo.updateOrThrow(operation);
+```
+
+## Async returns
+
+- Prefer `const result = await ...; return result;` over `return await ...`.
+
+$END$

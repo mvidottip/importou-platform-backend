@@ -1,0 +1,13 @@
+---
+description: Package manager — always Yarn
+alwaysApply: true
+---
+
+# package-manager
+
+- Always **Yarn** in `app/`. Never `npm install`, `npm run`, `npx`.
+- Install: `yarn` / `yarn install`
+- Scripts: `yarn <script>` (e.g. `yarn start:dev`, `yarn prisma:migrate`)
+- Lockfile: `yarn.lock`. Do not commit `package-lock.json`.
+
+$END$

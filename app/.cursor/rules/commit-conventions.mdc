@@ -1,0 +1,13 @@
+---
+description: Conventional commits in English (feat/chore/fix)
+alwaysApply: true
+---
+
+# commit-conventions
+
+- Commit messages in **English**.
+- Prefixes: `feat:`, `fix:`, `chore:`, plus `docs:`, `refactor:`, `test:`, `style:`, `perf:`, `ci:` when needed.
+- Format: `type: short description` (imperative, lowercase after colon, no trailing period).
+- Never commit `.env` or secrets.
+
+$END$

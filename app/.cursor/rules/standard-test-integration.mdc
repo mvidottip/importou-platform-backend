@@ -1,0 +1,18 @@
+---
+description: Integration test patterns for Importou handlers
+globs: "**/__tests__/@integration/**/*.ts"
+alwaysApply: false
+---
+
+# Integration tests (Importou)
+
+- `makeSut` with mocked repositories/DAOs/EventBus.
+- Pass `membership` with `organizationId` + role — never `tenantId`.
+- Assert repo spies and resulting entity status/enums.
+
+```typescript
+expect(spies.importOperationRepoSpy.findByIdOrThrow).toHaveBeenCalledWith(operationId);
+expect(operation.status).toBe(ImportOperationStatus.Cancelled);
+```
+
+$END$

@@ -1,0 +1,25 @@
+---
+description: Code structure habits for Importou Nest handlers
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Code structure (Importou)
+
+- Explicit `public`/`private` on class members.
+- Constructor injection with `private readonly`.
+- Handlers: orchestration only; no private methods encoding domain policy — put that on the entity/service.
+- Async: `const result = await this.dao.search(...); return result;`
+- Scope queries with `membership.organizationId` (or admin), never `tenantId`.
+
+```typescript
+public async execute(query: ImportOperationPublicListQuery) {
+  const result = await this.importOperationDataAccessObject.searchByOrganization(
+    query.membership.organizationId,
+    query.pagination,
+  );
+  return result;
+}
+```
+
+$END$

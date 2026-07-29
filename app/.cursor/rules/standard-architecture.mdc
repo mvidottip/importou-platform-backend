@@ -1,0 +1,34 @@
+---
+description: Importou Nest layering — api / application / domain / infra (no Tenant)
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Architecture (Importou)
+
+## Layers
+
+Unidirectional: **API → Application → Domain ← Infra**.
+
+- `api/` — controllers, inputs, outputs. Map HTTP → Command/Query. No repos/DAO/business rules.
+- `application/` — commands, queries, handlers, sagas. Orchestration only.
+- `domain/` — entities, VOs, domain events, repository interfaces. No Prisma/Nest HTTP imports.
+- `infra/` — Prisma repos, DAOs, mappers, gateway adapters.
+
+## Business logic placement
+
+- **Entity**: invariants and transitions from its own state (e.g. `ImportOperation.cancel()`, `BrokerProposal.accept()`).
+- **Domain/application service**: rules that need other aggregates or lookups.
+- **Handler**: fetch → authorize by **organization** → call entity/service → persist → publish. No domain rules inline.
+
+## Boundary
+
+- **No Tenant.** Scope = `Organization` + `Membership` + `Role`.
+- JWT: `{ sub: userId, membershipId }`.
+
+## Related
+
+- `standard-cqrs.mdc`, `standard-module.mdc`, `standard-persistence.mdc`, `importou-domain.mdc`
+- `block-technical-reference.mdc` — paths/naming HTTP espelham BlockBR (sem Tenant)
+
+$END$

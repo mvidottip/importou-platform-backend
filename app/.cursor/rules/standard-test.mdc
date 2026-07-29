@@ -1,0 +1,22 @@
+---
+description: Testing strategy overview for Importou
+globs: "**/*.{spec,test}.ts"
+alwaysApply: false
+---
+
+# Testing (Importou)
+
+## Where tests live
+
+- Unit (`@unit`): entities, VOs, pure builders/formatters.
+- Integration (`@integration`): handlers/services with mocked repos/DAO (makeSut).
+- Do **not** unit-test thin HTTP gateway stubs that only forward to an external API until there is real branching worth locking.
+
+## Principles
+
+- AAA (Arrange / Act / Assert).
+- Assert domain status via enums, not magic strings.
+- Prefer behavior over implementation details.
+- No real network in unit/integration.
+
+$END$

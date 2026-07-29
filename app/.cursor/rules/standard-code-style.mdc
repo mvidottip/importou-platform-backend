@@ -1,0 +1,17 @@
+---
+description: TypeScript/Nest code style for Importou
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Code style (Importou)
+
+- English for code identifiers, comments, and Swagger text.
+- 2-space indent; Prettier when configured.
+- Absolute imports `@src/...` only.
+- Import order: Nest/framework → third-party → `@src`, blank line between groups.
+- Object literals: prefer explicit `key: value` (no shorthand) when project ESLint requires it.
+- Enums: string values matching DB (`ImportOperationStatus.Cancelled = "cancelled"`).
+- JSDoc on public gateway/port methods when wrapping external APIs (Pay/KYB/Radar) — describe domain intent, not vendor names from other products.
+
+$END$

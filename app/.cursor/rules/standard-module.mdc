@@ -1,0 +1,45 @@
+---
+description: Nest module folder layout for Importou
+globs: src/modules/**/*
+alwaysApply: false
+---
+
+# Module structure (Importou)
+
+Each feature module under `src/modules/{name}/`:
+
+```
+{name}/
+├── api/
+│   ├── public/          # importer/exporter/broker HTTP
+│   ├── backoffice/      # admin HTTP
+│   └── common/          # shared guards/decorators when needed
+├── application/
+│   ├── public|backoffice|internal/
+│   │   ├── commands/
+│   │   ├── queries/
+│   │   └── handlers/
+├── domain/
+│   ├── entities/
+│   ├── events/
+│   └── {name}.repository.ts   # interface
+├── infra/
+│   ├── {name}.repository.ts   # Prisma impl
+│   ├── {name}.mapper.ts
+│   └── {name}.data-access-object.ts
+└── {name}.module.ts
+```
+
+## Naming
+
+- Files kebab-case; classes PascalCase.
+- Commands: `{module}-{context}-{action}.command.ts`
+- Imports only `@src/...`.
+
+## Example domains
+
+`auth`, `organization`, `membership`, `user`, `import-operation`, `exporter-quote`, `broker-proposal`, `audit`.
+
+Do not scaffold Offer/Investment/Token modules.
+
+$END$

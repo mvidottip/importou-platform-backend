@@ -1,0 +1,39 @@
+---
+description: BlockBR como referência técnica Nest/CQRS — auth e layout de API
+alwaysApply: true
+---
+
+# Block technical reference
+
+Fonte de verdade de **padrão de código** (Nest + CQRS + camadas + naming): **BlockBR** (`bbr-aws-app-ecs-backend`).
+
+Importou **copia o estilo** Block e **adapta o domínio**: sem Tenant; boundary = `Organization` + `Membership` + `Role`.
+
+## Auth HTTP (seguir Block)
+
+| Passo | Método | Path Block | JWT |
+|-------|--------|------------|-----|
+| 1 | `POST` | `/public/auth/authenticate` | curto; `{ sub: userId }` |
+| 2 | `POST` | `/public/auth/authorize` | longo; body `{ membershipId }` → `{ sub, membershipId }` |
+| 3 | `GET` | `/public/user/me` | Bearer + `AuthAuthorizeGuard` |
+
+- Auth output: `{ accessToken }` (`AuthOutput`).
+- Controllers: `AuthPublicController`, `UserPublicController` (me no módulo **user**, não em auth).
+- Guards: `AuthAuthenticateGuard` (só user) → `AuthAuthorizeGuard` (user + membership).
+
+## Importou (MVP)
+
+- 1 membership por user → **fundir** authenticate+authorize num único `POST /public/auth/authenticate` emitindo já `{ sub, membershipId }` (TTL ~7d).
+- Manter `GET /public/user/me` no módulo user.
+- Quando existir multi-membership, reintroduzir `POST /public/auth/authorize` como no Block.
+- Sem Tenant / Person-KYC / avatar no me — retornar user + membership + organization + role.
+
+## O que NÃO copiar da Block
+
+Tenant, white-label metrics, Offer/Investment/Token, fluxos KYC/suitability de investor.
+
+## Ao implementar
+
+Preferir naming e pastas Block (`*-public-*-create.handler.ts`, `api/public|common`, `toOutput`). Domínio e rotas = Importou.
+
+$END$

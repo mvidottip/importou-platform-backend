@@ -6,6 +6,7 @@ import { GatewaysModule } from "@src/infra/gateways/gateways.module";
 import { AuditModule } from "@src/modules/audit/audit.module";
 import { AuthModule } from "@src/modules/auth/auth.module";
 import { BrokerProposalModule } from "@src/modules/broker-proposal/broker-proposal.module";
+import { ContactModule } from "@src/modules/contact/contact.module";
 import { ExporterQuoteModule } from "@src/modules/exporter-quote/exporter-quote.module";
 import { HealthModule } from "@src/modules/health/health.module";
 import { ImportOperationModule } from "@src/modules/import-operation/import-operation.module";
@@ -25,6 +26,7 @@ import { UserModule } from "@src/modules/user/user.module";
     RoleModule,
     OrganizationModule,
     MembershipModule,
+    ContactModule,
     UserModule,
     PersonModule,
     AuthModule,

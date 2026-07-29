@@ -1,27 +1,15 @@
-# Tarefa 4.0: Login + Me (CQRS + controller)
+# Task 4.0 — Authenticate + Me
 
-<critical>Ler o `prd.md` e o `techspec.md` desta pasta antes de implementar.</critical>
+## Goal
 
-## Visão Geral
+Endpoints públicos no padrão Block.
 
-Endpoints públicos de login e me.
+## Deliverables
 
-<requirements>
-- `POST /auth/login`
-- `GET /auth/me` com guard
-- Handlers via CommandBus/QueryBus
-- Swagger documentado
-</requirements>
+- [x] `POST /public/auth/authenticate` → `{ accessToken }` com JWT `{ sub, membershipId }`
+- [x] `GET /public/user/me` com `AuthAuthorizeGuard`
+- [x] Controllers + CQRS handlers
 
-## Subtarefas
+## Notes
 
-- [ ] 4.1 Inputs/outputs
-- [ ] 4.2 LoginCommand + handler
-- [ ] 4.3 MeQuery + handler
-- [ ] 4.4 AuthController
-- [ ] 4.5 Wire AuthModule
-
-## Critérios de Sucesso
-
-- [ ] Login retorna token para seed users
-- [ ] Me retorna org/role corretos
+MVP funde authenticate+authorize da Block (1 membership por user). Front fica para depois.

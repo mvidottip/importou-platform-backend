@@ -1,24 +1,29 @@
-# Technical Specification — Auth + Membership bootstrap
+# Technical Specification — Auth + Membership
 
 ## Executive Summary
 
-Implementar módulo `auth` + wiring de `membership` / `role` / `user` / `organization` / `person` / `contact` o suficiente para login JWT e autorização por role. Seguir layout Nest da Block: API → Application/CQRS → Domain → Infra. Sem Tenant: payload JWT `{ sub: userId, membershipId }`; guard resolve org + role.
+Implementar módulo `auth` + wiring de `membership` / `role` / `user` / `organization` / `person` / `contact` para login JWT e autorização por role. **Referência técnica = BlockBR** (`block-technical-reference.mdc`): API → Application/CQRS → Domain → Infra. Sem Tenant: payload JWT `{ sub: userId, membershipId }`; guard resolve org + role.
 
 ## System Architecture
 
 ```
 auth/
-├── api/common/          → AuthAuthorizeGuard, Roles decorator, MembershipCurrent
-├── api/public/          → AuthController (login, me)
-├── application/public/  → LoginCommand, MeQuery + handlers
-domain (módulos existentes) → enums já criados
-infra                    → Prisma repos mínimos ou uso direto PrismaService no MVP seed
+├── api/common/          → AuthAuthorizeGuard, AuthOutput, JwtPayload
+├── api/public/          → AuthPublicController (authenticate)
+├── application/public/  → AuthPublicAuthenticateCreateCommand + handler
+├── domain/              → IAuthService
+└── infra/               → AuthService (JWT)
+
+user/
+├── api/public/          → UserPublicController (GET /me)
+├── application/public/  → UserPublicMeQuery + handler
+└── infra/               → UserDataAccessObject
 ```
 
 ### Data flow
 
-1. Login: busca Contact(email) → User → Membership ativa → valida password → JWT.
-2. Request: Guard lê JWT → carrega Membership + Role + Organization → anexa em `request`.
+1. Authenticate: Contact(email) → Person → User → Membership ativa → valida password → JWT `{ sub, membershipId }` (MVP funde authorize Block).
+2. Request: `AuthAuthorizeGuard` lê JWT → carrega Membership + Role + Organization → anexa em `request`.
 3. `@Roles` compara `role.type` com metadata.
 
 ## Implementation Design
@@ -32,16 +37,17 @@ infra                    → Prisma repos mínimos ou uso direto PrismaService n
 ### Roles decorator
 
 ```typescript
-export const ROLES_KEY = "roles";
-export const Roles = (...roles: RoleType[]) => SetMetadata(ROLES_KEY, roles);
+export const Roles = (...roles: RoleType[]) => SetMetadata("roles", roles);
 ```
 
-### Endpoints
+### Endpoints (padrão Block)
 
-| Method | Path | Auth | Roles |
+| Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| POST | `/auth/login` | public | — |
-| GET | `/auth/me` | Bearer | any authenticated |
+| POST | `/public/auth/authenticate` | public | MVP: já emite token com membershipId |
+| GET | `/public/user/me` | Bearer + AuthAuthorizeGuard | user + org + role |
+
+Quando existir multi-membership: adicionar `POST /public/auth/authorize` como na Block.
 
 ### Seed (emails = front mock)
 
@@ -52,23 +58,18 @@ export const Roles = (...roles: RoleType[]) => SetMetadata(ROLES_KEY, roles);
 | exporter@importou.com | exporter | exporter |
 | broker@importou.com | broker | broker (+ license) |
 
-Password: qualquer string fixa hashada, ex. `importou` (só dev).
-
-### Prisma
-
-Schema já existe — sem migration de models novos; apenas `prisma migrate` inicial se ainda não rodou + seed script.
+Password: `importou` (só dev).
 
 ## Testing Strategy
 
-- Unit: password validate; roles guard allow/deny.
-- Manual: login 4 users; `/auth/me`; rota admin mock 403 para importer.
+- Manual (done 2026-07-29): authenticate 4 users; `/public/user/me`; senha errada / me sem token → 401.
 - Cenários:
-  1. Login ok → 200 + token
+  1. Authenticate ok → `{ accessToken }`
   2. Senha errada → 401
   3. Me sem token → 401
-  4. Me com token → org/role corretos
+  4. Me com token → `role` + `organization.type` corretos
 
 ## Rollout / risks
 
-- Docker Postgres na porta 5433 (`docker-compose.yml`).
 - Não expor seed passwords em produção.
+- Front auth já na API; dados ainda mock até epic ImportOperation.
